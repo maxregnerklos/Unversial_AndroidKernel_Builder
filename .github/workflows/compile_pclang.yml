@@ -147,13 +147,7 @@ jobs:
         name: UALoader_${{github.event.inputs.device}}_Fullpack
         path: /workdir/kernel/out/arch/arm64/boot/
         
-    - name: Upload Kernel Patcher
-      uses: actions/upload-artifact@main
-      with:
-        working-directory: /workdir
-        name: UA_Loader_${{github.event.inputs.device}}_Anykernel
-        path: /workdir/anykernel/
-
+   
     - name: Generate release tag
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
