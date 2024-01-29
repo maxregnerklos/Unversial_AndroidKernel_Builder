@@ -1,7 +1,7 @@
 #!/bin/bash
 starttime=`date +'%Y-%m-%d %H:%M:%S'`
 PATH="$BUILDER:$PATH"
-make -j$(nproc --all) O=out \
+make -i -j$(nproc --all) O=out \
     NM=llvm-nm \
     OBJCOPY=llvm-objcopy \
     LD=ld.lld \
