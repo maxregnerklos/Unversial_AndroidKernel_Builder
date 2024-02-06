@@ -97,9 +97,7 @@ jobs:
       if: (github.event.inputs.ccache == 'true' && github.event.inputs.ccache  != 'false') || contains(github.event.action, 'ccache')
       run: |
         ccache -M 15G
-        chmod 755 kernel/scripts
-        chmod 755 /workdir/kernel/scripts/*
-        chmod 755 /workdir/kernel/scripts/*/*
+        
         
     - name: Patch KernelSU (${{github.event.inputs.kernelsu}})
       id: kernelsu
