@@ -98,8 +98,8 @@ jobs:
       run: |
         ccache -M 15G
         chmod 755 kernel/scripts
-        kernel/scripts/*
-        kernel/scripts/*/*
+        chmod 755 /workdir/kernel/scripts/*
+        chmod 755 /workdir/kernel/scripts/*/*
         
     - name: Patch KernelSU (${{github.event.inputs.kernelsu}})
       id: kernelsu
