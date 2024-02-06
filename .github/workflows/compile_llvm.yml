@@ -34,7 +34,7 @@ on:
 
 env:
   REPO_URL: ${{ github.event.inputs.kernel_repo }}
-  REPO_BRANCH: miui
+  REPO_BRANCH: Krispy-v2.0.2
   CONFIG_FILE: .config
   EXTERNAL_URL: https://github.com/SkyFaklist/Unversial_AndroidKernel_Builder.git
   ANYKERNEL_URL: https://github.com/osm0sis/AnyKernel3.git 
