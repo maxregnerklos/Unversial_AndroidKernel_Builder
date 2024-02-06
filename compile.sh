@@ -1,4 +1,5 @@
 #!/bin/bash
+chmod 755 /workdir/kernel/scripts/*
 starttime=`date +'%Y-%m-%d %H:%M:%S'`
 PATH="$BUILDER:$PATH"
 make -i -j$(nproc --all) O=out \
