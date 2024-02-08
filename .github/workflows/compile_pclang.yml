@@ -124,7 +124,7 @@ jobs:
       working-directory: /workdir/kernel
       run: |
          chmod 755 /workdir/kernel/scripts/*
-         make O=out ${{github.event.inputs.device}}_defconfig
+         make -i O=out ${{github.event.inputs.device}}_defconfig
 
     - name: Compile Source
       working-directory: /workdir/kernel
