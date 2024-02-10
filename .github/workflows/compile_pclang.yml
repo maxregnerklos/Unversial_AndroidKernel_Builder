@@ -135,7 +135,7 @@ jobs:
       run: |
         mkdir /workdir/release_up
         ln -sf /workdir/release_up $GITHUB_WORKSPACE/release_up
-        cp /workdir/kernel/out/arch/arm64/boot/Image.gz-dtb ./anykernel/Image-dtb
+        cp /workdir/kernel/out/arch/arm64/boot/Image ./anykernel/Image-dtb
         tar -zcvf /workdir/release_up/UALoader_${{github.event.inputs.device}}_Fullpack.tar.gz /workdir/kernel/out/arch/arm64/boot/*
         zip -q -r /workdir/release_up/UA_Loader_${{github.event.inputs.device}}_Anykernel.zip /workdir/anykernel/*
         
