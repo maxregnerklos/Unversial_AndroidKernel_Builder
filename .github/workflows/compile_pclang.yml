@@ -129,29 +129,13 @@ jobs:
         chmod +x ./compile.sh
         bash ./compile.sh
         ls /workdir/kernel/out/arch/arm64/boot/
-    
-    - name: Pack Kernel
-      working-directory: /workdir
-      run: |
-        mkdir /workdir/release_up
-        ln -sf /workdir/release_up $GITHUB_WORKSPACE/release_up
-        cp /workdir/kernel/out/arch/arm64/boot/Image ./anykernel/Image-dtb
-        tar -zcvf /workdir/release_up/UALoader_${{github.event.inputs.device}}_Fullpack.tar.gz /workdir/kernel/out/arch/arm64/boot/*
-        zip -q -r /workdir/release_up/UA_Loader_${{github.event.inputs.device}}_Anykernel.zip /workdir/anykernel/*
         
     - name: Upload Kernel directory
       uses: actions/upload-artifact@main
       with:
         working-directory: /workdir/kernel
-        name: UALoader_${{github.event.inputs.device}}_Fullpack
+        name: exynos_*.img
         path: /workdir/kernel/out/arch/arm64/boot/
-        
-    - name: Upload Kernel Patcher
-      uses: actions/upload-artifact@main
-      with:
-        working-directory: /workdir
-        name: UA_Loader_${{github.event.inputs.device}}_Anykernel
-        path: /workdir/anykernel/
 
     - name: Generate release tag
       id: tag
