@@ -131,7 +131,7 @@ jobs:
     - name: Set Device
       working-directory: /workdir/kernel
       run: |
-         make O=out ${{github.event.inputs.device}}_defconfig
+         make -i O=out ${{github.event.inputs.device}}_defconfig
 
     - name: Compile Source
       working-directory: /workdir/kernel
