@@ -1,4 +1,4 @@
-#
+	#
 # Copyright (c) 2022-2023 SkyFaklist
 #
 # This is free software, licensed under the GPL License.
@@ -6,9 +6,9 @@
 #
 # Description: Build UA Kernel using GitHub Actions
 #
-
+ 
 name: Build UA Kernel (Proton-Clang)
-
+ 
 on:
   repository_dispatch:
   workflow_dispatch:
@@ -19,6 +19,14 @@ on:
         default: ''
       repo_branch:
         description: 'Branch of Kernel repo'
+        required: true
+        default: 'master'
+      repo2:
+        description: 'Second Kernel Repo URL'
+        required: true
+        default: ''
+      repo2_branch:
+        description: 'Branch of Second Kernel repo'
         required: true
         default: 'master'
       device:
@@ -41,7 +49,7 @@ on:
         description: 'Use CCache'
         required: true
         default: 'true'
-
+ 
 env:
   UPLOAD_BIN_DIR: true
   UPLOAD_RELEASE: true
@@ -54,15 +62,15 @@ env:
   CCACHE_DIR: ~/.ccache
   BUILDER: /workdir/toolchain/bin/
   
-
+ 
 jobs:
   build:
     runs-on: ubuntu-20.04
-
+ 
     steps:
     - name: Checkout
       uses: actions/checkout@main
-
+ 
     - name: Initialization environment
       env:
         DEBIAN_FRONTEND: noninteractive
@@ -76,7 +84,7 @@ jobs:
         sudo timedatectl set-timezone "$TZ"
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
-
+ 
     - name: Clone source code
       working-directory: /workdir
       run: |
@@ -86,6 +94,7 @@ jobs:
         git clone $ANYKERNEL_URL anykernel
         rm -rf ./anykernel/.github && rm -rf ./anykernel/README.md && rm -rf ./anykernel/.git && rm -rf ./anykernel/anykernel.sh
         git clone --depth=1 ${{github.event.inputs.repo}} -b ${{github.event.inputs.repo_branch}} kernel
+        git clone --depth=1 ${{github.event.inputs.repo2}} -b ${{github.event.inputs.repo2_branch}} kernel2
         git clone --depth=1 $COMPER_URL toolchain
         cp ./extra/compile.sh ./kernel/
         cp ./extra/anykernel.sh ./anykernel/
