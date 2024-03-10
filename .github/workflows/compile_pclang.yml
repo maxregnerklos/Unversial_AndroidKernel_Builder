@@ -1,19 +1,17 @@
-#
 # Copyright (c) 2022-2023 SkyFaklist
 #
 # This is free software, licensed under the GPL License.
 # See /LICENSE for more information.
 #
 # Description: Build UA Kernel using GitHub Actions
-#
- 
+
 name: Build UA Kernel (Proton-Clang)
- 
+
 on:
   repository_dispatch:
   workflow_dispatch:
     inputs:
-      repo:
+      repo_url:
         description: 'Kernel Repo URL'
         required: true
         default: ''
@@ -21,7 +19,7 @@ on:
         description: 'Branch of Kernel repo'
         required: true
         default: 'master'
-      repo2:
+      repo2_url:
         description: 'Second Kernel Repo URL'
         required: true
         default: ''
@@ -37,7 +35,7 @@ on:
         description: 'SSH connection to Actions'
         required: false
         default: 'false'
-      custom:
+      custom_script:
         description: 'Run custom script'
         required: false
         default: 'false'
@@ -45,11 +43,11 @@ on:
         description: 'Compile KernelSU'
         required: false
         default: 'false'
-      ccache:
+      use_ccache:
         description: 'Use CCache'
         required: true
         default: 'true'
- 
+
 env:
   UPLOAD_BIN_DIR: true
   UPLOAD_RELEASE: true
@@ -61,128 +59,118 @@ env:
   SUBARCH: arm64
   CCACHE_DIR: ~/.ccache
   BUILDER: /workdir/toolchain/bin/
-  
- 
+
 jobs:
   build:
     runs-on: ubuntu-20.04
- 
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@main
- 
-    - name: Initialization environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: |
-        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
-        sudo -E apt-get -qq update
-        #sudo -E apt-get -qq install $(curl -fsSL git.io/depends-ubuntu-2004)
-        sudo -E apt-get install -y bc bison build-essential binutils-dev ca-certificates ccache cmake curl flex file g++-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libwxgtk3.0-gtk3-dev libc6-i386 libxml2 libxml2-utils lld lzop ninja-build pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev unzip openjdk-8-jdk language-pack-zh-hans texinfo python python3.7 vim u-boot-tools xz-utils zlib1g-dev
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo timedatectl set-timezone "$TZ"
-        sudo mkdir -p /workdir
-        sudo chown $USER:$GROUPS /workdir
- 
-    - name: Clone source code
-      working-directory: /workdir
-      run: |
-        df -hT $PWD
-        mkdir extra
-        mv $GITHUB_WORKSPACE/anykernel.sh extra/ && mv $GITHUB_WORKSPACE/compile.sh extra/ && mv $GITHUB_WORKSPACE/custom.sh extra/
-        git clone $ANYKERNEL_URL anykernel
-        rm -rf ./anykernel/.github && rm -rf ./anykernel/README.md && rm -rf ./anykernel/.git && rm -rf ./anykernel/anykernel.sh
-        git clone --depth=1 ${{github.event.inputs.repo}} -b ${{github.event.inputs.repo_branch}} kernel
-        git clone --depth=1 ${{github.event.inputs.repo2}} -b ${{github.event.inputs.repo2_branch}} kernel2
-        git clone --depth=1 $COMPER_URL toolchain
-        cp ./extra/compile.sh ./kernel/
-        cp ./extra/anykernel.sh ./anykernel/
-        ln -sf /workdir/kernel $GITHUB_WORKSPACE/kernel
+      # Step 1: Checkout code
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Set CCache (${{github.event.inputs.ccache}})
-      id: ccache
-      working-directory: /workdir/kernel
-      if: (github.event.inputs.ccache == 'true' && github.event.inputs.ccache  != 'false') || contains(github.event.action, 'ccache')
-      run: |
-        ccache -M 15G
-        
-    - name: Patch KernelSU (${{github.event.inputs.kernelsu}})
-      id: kernelsu
-      working-directory: /workdir/kernel
-      if: (github.event.inputs.kernelsu == 'true' && github.event.inputs.kernelsu  != 'false') || contains(github.event.action, 'kernelsu')
-      run: |
-       curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-        
-    - name: Kernel Custom Script (${{github.event.inputs.custom}})
-      id: custom
-      working-directory: /workdir
-      if: (github.event.inputs.custom == 'true' && github.event.inputs.custom  != 'false') || contains(github.event.action, 'custom')
-      run: |
-       cp ./extra/custom.sh ./kernel/
-       chmod +x ./kernel/custom.sh
-       bash ./kernel/custom.sh
-        
-    - name: SSH connection to Actions (${{github.event.inputs.ssh}})
-      id: ssh
-      uses: mxschmitt/action-tmate@v3
-      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
+      # Step 2: Initialize environment
+      - name: Initialize environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential binutils-dev ca-certificates ccache cmake curl flex file g++-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libwxgtk3.0-gtk3-dev libc6-i386 libxml2 libxml2-utils lld lzop ninja-build pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev unzip openjdk-8-jdk language-pack-zh-hans texinfo python python3.7 vim u-boot-tools xz-utils zlib1g-dev
+          sudo apt-get autoremove --purge -y
+          sudo apt-get clean
+          sudo timedatectl set-timezone "$TZ"
+          mkdir -p /workdir
 
-    - name: Set Device
-      working-directory: /workdir/kernel
-      run: |
-         make -i O=out ${{github.event.inputs.device}}_defconfig
-
-    - name: Compile Source
-      working-directory: /workdir/kernel
-      run: |
-        chmod +x ./compile.sh
-        bash ./compile.sh
-        ls /workdir/kernel/out/arch/arm64/boot/
-    
-    - name: Pack Kernel
-      working-directory: /workdir
-      run: |
-        mkdir /workdir/release_up
-        ln -sf /workdir/release_up $GITHUB_WORKSPACE/release_up
-        cp /workdir/kernel/out/arch/arm64/boot/Image.gz-dtb ./anykernel/Image-dtb
-        tar -zcvf /workdir/release_up/UALoader_${{github.event.inputs.device}}_Fullpack.tar.gz /workdir/kernel/out/arch/arm64/boot/*
-        zip -q -r /workdir/release_up/UA_Loader_${{github.event.inputs.device}}_Anykernel.zip /workdir/anykernel/*
-        
-    - name: Upload Kernel directory
-      uses: actions/upload-artifact@main
-      with:
-        working-directory: /workdir/kernel
-        name: UALoader_${{github.event.inputs.device}}_Fullpack
-        path: /workdir/kernel/out/arch/arm64/boot/
-        
-    - name: Upload Kernel Patcher
-      uses: actions/upload-artifact@main
-      with:
+      # Step 3: Clone source code and setup
+      - name: Clone source code
         working-directory: /workdir
-        name: UA_Loader_${{github.event.inputs.device}}_Anykernel
-        path: /workdir/anykernel/
+        run: |
+          git clone --depth=1 ${{ github.event.inputs.repo_url }} -b ${{ github.event.inputs.repo_branch }} kernel
+          git clone --depth=1 ${{ github.event.inputs.repo2_url }} -b ${{ github.event.inputs.repo2_branch }} kernel2
+          git clone --depth=1 $COMPER_URL toolchain
+          git clone $ANYKERNEL_URL anykernel
+          mv anykernel/anykernel.sh anykernel/compile.sh anykernel/custom.sh extra/
+          rm -rf anykernel/.github anykernel/README.md anykernel/.git anykernel/anykernel.sh
+          cp extra/compile.sh kernel/
+          cp extra/custom.sh kernel/
+          ln -sf /workdir/kernel $GITHUB_WORKSPACE/kernel
 
-    - name: Generate release tag
-      id: tag
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      run: |
-        echo "::set-output name=release_tag::$("UAB-"+date +"%Y.%m.%d-%H%M")"
-        touch release.txt
-        echo "::set-output name=status::success"
+      # Step 4: Set up CCache
+      - name: Set CCache
+        if: ${{ github.event.inputs.use_ccache == 'true' }}
+        run: ccache -M 15G
 
-    - name: Upload Kernel to release
-      uses: softprops/action-gh-release@v1
-      if: steps.tag.outputs.status == 'success' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: release.txt
-        files: /workdir/release_up/*
-       
-    - name: Delete workflow runs
-      uses: GitRML/delete-workflow-runs@main
-      with:
-        retain_days: 1
-        keep_minimum_runs: 3
+      # Step 5: Patch KernelSU
+      - name: Patch KernelSU
+        if: ${{ github.event.inputs.kernelsu == 'true' }}
+        run: curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+
+      # Step 6: Run custom script
+      - name: Run Custom Script
+        if: ${{ github.event.inputs.custom_script == 'true' }}
+        run: |
+          chmod +x ./kernel/custom.sh
+          ./kernel/custom.sh
+
+      # Step 7: Set Device
+      - name: Set Device
+        working-directory: /workdir/kernel
+        run: make -i O=out ${{ github.event.inputs.device }}_defconfig
+
+      # Step 8: Compile Source
+      - name: Compile Source
+        working-directory: /workdir/kernel
+        run: |
+          chmod +x compile.sh
+          ./compile.sh
+          ls out/arch/arm64/boot/
+
+      # Step 9: Pack Kernel
+      - name: Pack Kernel
+        working-directory: /workdir
+        run: |
+          mkdir -p /workdir/release_up
+          ln -sf /workdir/release_up $GITHUB_WORKSPACE/release_up
+          cp /workdir/kernel/out/arch/arm64/boot/Image.gz-dtb ./anykernel/Image-dtb
+          tar -zcvf /workdir/release_up/UALoader_${{ github.event.inputs.device }}_Fullpack.tar.gz /workdir/kernel/out/arch/arm64/boot/*
+          zip -q -r /workdir/release_up/UA_Loader_${{ github.event.inputs.device }}_Anykernel.zip /workdir/anykernel/*
+
+      # Step 10: Upload Kernel directory
+      - name: Upload Kernel Directory
+        uses: actions/upload-artifact@v2
+        with:
+          name: UALoader_${{ github.event.inputs.device }}_Fullpack
+          path: /workdir/kernel/out/arch/arm64/boot/
+
+      # Step 11: Upload Kernel Patcher
+      - name: Upload Kernel Patcher
+        uses: actions/upload-artifact@v2
+        with:
+          name: UA_Loader_${{ github.event.inputs.device }}_Anykernel
+          path: /workdir/anykernel/
+
+      # Step 12: Generate release tag
+      - name: Generate release tag
+        id: tag
+        if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+        run: |
+          echo "UAB-$(date +'%Y.%m.%d-%H%M')" > release.txt
+          echo "::set-output name=release_tag::$(cat release.txt)"
+          echo "::set-output name=status::success"
+
+      # Step 13: Upload Kernel to release
+      - name: Upload Kernel to release
+        uses: softprops/action-gh-release@v1
+        if: steps.tag.outputs.status == 'success' && !cancelled()
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          body_path: release.txt
+          files: /workdir/release_up/*
+
+      # Step 14: Delete workflow runs
+      - name: Delete workflow runs
+        uses: GitRML/delete-workflow-runs@main
+        with:
+          retain_days: 1
+          keep_minimum_runs: 3
