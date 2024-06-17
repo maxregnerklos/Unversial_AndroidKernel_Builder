@@ -1,12 +1,3 @@
-#
-# Copyright (c) 2022-2023 SkyFaklist
-#
-# This is free software, licensed under the GPL License.
-# See /LICENSE for more information.
-#
-# Description: Build UA Kernel using GitHub Actions
-#
-
 name: Build UA Kernel (Proton-Clang)
 
 on:
@@ -53,7 +44,6 @@ env:
   SUBARCH: arm64
   CCACHE_DIR: ~/.ccache
   BUILDER: /workdir/toolchain/bin/
-  
 
 jobs:
   build:
@@ -69,7 +59,6 @@ jobs:
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        #sudo -E apt-get -qq install $(curl -fsSL git.io/depends-ubuntu-2004)
         sudo -E apt-get install -y bc bison build-essential binutils-dev ca-certificates ccache cmake curl flex file g++-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libwxgtk3.0-gtk3-dev libc6-i386 libxml2 libxml2-utils lld lzop ninja-build pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev unzip openjdk-8-jdk language-pack-zh-hans texinfo python python3.7 vim u-boot-tools xz-utils zlib1g-dev
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
@@ -97,23 +86,23 @@ jobs:
       if: (github.event.inputs.ccache == 'true' && github.event.inputs.ccache  != 'false') || contains(github.event.action, 'ccache')
       run: |
         ccache -M 15G
-        
+
     - name: Patch KernelSU (${{github.event.inputs.kernelsu}})
       id: kernelsu
       working-directory: /workdir/kernel
       if: (github.event.inputs.kernelsu == 'true' && github.event.inputs.kernelsu  != 'false') || contains(github.event.action, 'kernelsu')
       run: |
-       curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-        
+        curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+
     - name: Kernel Custom Script (${{github.event.inputs.custom}})
       id: custom
       working-directory: /workdir
       if: (github.event.inputs.custom == 'true' && github.event.inputs.custom  != 'false') || contains(github.event.action, 'custom')
       run: |
-       cp ./extra/custom.sh ./kernel/
-       chmod +x ./kernel/custom.sh
-       bash ./kernel/custom.sh
-        
+        cp ./extra/custom.sh ./kernel/
+        chmod +x ./kernel/custom.sh
+        bash ./kernel/custom.sh
+
     - name: SSH connection to Actions (${{github.event.inputs.ssh}})
       id: ssh
       uses: mxschmitt/action-tmate@v3
@@ -122,7 +111,7 @@ jobs:
     - name: Set Device
       working-directory: /workdir/kernel
       run: |
-         make O=out ${{github.event.inputs.device}}_defconfig
+        make O=out ${{github.event.inputs.device}}_defconfig
 
     - name: Compile Source
       working-directory: /workdir/kernel
@@ -130,15 +119,14 @@ jobs:
         chmod +x ./compile.sh
         bash ./compile.sh
         ls /workdir/kernel/out/arch/arm64/boot/
-    
-        
+
     - name: Upload Kernel directory
       uses: actions/upload-artifact@main
       with:
         working-directory: /workdir/kernel/out/arch/arm64/boot
         name: Image
         path: /workdir/kernel/out/arch/arm64/boot/
-        
+
     - name: Upload Kernel Patcher
       uses: actions/upload-artifact@main
       with:
@@ -150,7 +138,7 @@ jobs:
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        echo "::set-output name=release_tag::$("UAB-"+date +"%Y.%m.%d-%H%M")"
+        echo "::set-output name=release_tag::$(echo "UAB-"+date +"%Y.%m.%d-%H%M")"
         touch release.txt
         echo "::set-output name=status::success"
 
@@ -163,7 +151,7 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: /workdir/release_up/*
-       
+
     - name: Delete workflow runs
       uses: GitRML/delete-workflow-runs@main
       with:
