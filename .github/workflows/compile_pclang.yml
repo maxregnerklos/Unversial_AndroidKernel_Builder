@@ -40,8 +40,8 @@ env:
   COMPILER_URL: https://github.com/kdrag0n/proton-clang.git
   ANYKERNEL_URL: https://github.com/osm0sis/AnyKernel3.git 
   TZ: Asia/Shanghai
-  ARCH: arm64
-  SUBARCH: arm64
+  ARCH: arm
+  SUBARCH: arm
   CCACHE_DIR: ~/.ccache
   BUILDER: /workdir/toolchain/bin/
 
