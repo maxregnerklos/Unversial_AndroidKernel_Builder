@@ -37,7 +37,7 @@ env:
   UPLOAD_BIN_DIR: true
   UPLOAD_RELEASE: true
   REPO_BRANCH: master
-  COMPER_URL: https://github.com/kdrag0n/proton-clang.git
+  COMPILER_URL: https://github.com/kdrag0n/proton-clang.git
   ANYKERNEL_URL: https://github.com/osm0sis/AnyKernel3.git 
   TZ: Asia/Shanghai
   ARCH: arm64
@@ -51,9 +51,9 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@main
+      uses: actions/checkout@v2
 
-    - name: Initialization environment
+    - name: Initialize environment
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
@@ -74,27 +74,27 @@ jobs:
         mv $GITHUB_WORKSPACE/anykernel.sh extra/ && mv $GITHUB_WORKSPACE/compile.sh extra/ && mv $GITHUB_WORKSPACE/custom.sh extra/
         git clone $ANYKERNEL_URL anykernel
         rm -rf ./anykernel/.github && rm -rf ./anykernel/README.md && rm -rf ./anykernel/.git && rm -rf ./anykernel/anykernel.sh
-        git clone --depth=1 ${{github.event.inputs.repo}} -b ${{github.event.inputs.repo_branch}} kernel
-        git clone --depth=1 $COMPER_URL toolchain
+        git clone --depth=1 ${{ github.event.inputs.repo }} -b ${{ github.event.inputs.repo_branch }} kernel
+        git clone --depth=1 $COMPILER_URL toolchain
         cp ./extra/compile.sh ./kernel/
         cp ./extra/anykernel.sh ./anykernel/
         ln -sf /workdir/kernel $GITHUB_WORKSPACE/kernel
 
-    - name: Set CCache (${{github.event.inputs.ccache}})
+    - name: Set CCache (${{ github.event.inputs.ccache }})
       id: ccache
       working-directory: /workdir/kernel
       if: (github.event.inputs.ccache == 'true' && github.event.inputs.ccache  != 'false') || contains(github.event.action, 'ccache')
       run: |
         ccache -M 15G
 
-    - name: Patch KernelSU (${{github.event.inputs.kernelsu}})
+    - name: Patch KernelSU (${{ github.event.inputs.kernelsu }})
       id: kernelsu
       working-directory: /workdir/kernel
       if: (github.event.inputs.kernelsu == 'true' && github.event.inputs.kernelsu  != 'false') || contains(github.event.action, 'kernelsu')
       run: |
         curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
 
-    - name: Kernel Custom Script (${{github.event.inputs.custom}})
+    - name: Kernel Custom Script (${{ github.event.inputs.custom }})
       id: custom
       working-directory: /workdir
       if: (github.event.inputs.custom == 'true' && github.event.inputs.custom  != 'false') || contains(github.event.action, 'custom')
@@ -103,7 +103,7 @@ jobs:
         chmod +x ./kernel/custom.sh
         bash ./kernel/custom.sh
 
-    - name: SSH connection to Actions (${{github.event.inputs.ssh}})
+    - name: SSH connection to Actions (${{ github.event.inputs.ssh }})
       id: ssh
       uses: mxschmitt/action-tmate@v3
       if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
@@ -111,7 +111,7 @@ jobs:
     - name: Set Device
       working-directory: /workdir/kernel
       run: |
-        make O=out ${{github.event.inputs.device}}_defconfig
+        make O=out ${{ github.event.inputs.device }}_defconfig
 
     - name: Compile Source
       working-directory: /workdir/kernel
@@ -121,17 +121,15 @@ jobs:
         ls /workdir/kernel/out/arch/arm64/boot/
 
     - name: Upload Kernel directory
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v2
       with:
-        working-directory: /workdir/kernel/out/arch/arm64/boot
         name: Image
         path: /workdir/kernel/out/arch/arm64/boot/
 
     - name: Upload Kernel Patcher
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v2
       with:
-        working-directory: /workdir
-        name: UA_Loader_${{github.event.inputs.device}}_Anykernel
+        name: UA_Loader_${{ github.event.inputs.device }}_Anykernel
         path: /workdir/anykernel/
 
     - name: Generate release tag
@@ -153,7 +151,7 @@ jobs:
         files: /workdir/release_up/*
 
     - name: Delete workflow runs
-      uses: GitRML/delete-workflow-runs@main
+      uses: GitRML/delete-workflow-runs@v2
       with:
         retain_days: 1
         keep_minimum_runs: 3
