@@ -39,7 +39,7 @@ jobs:
     - name: Clone kernel source
       working-directory: $GITHUB_WORKSPACE/workdir
       run: |
-        git clone --depth=1 ${{ github.event.inputs.repo }} -b ${{ github.event.inputs.repo_branch }} kernel
+        git clone ${{ github.event.inputs.repo }} -b ${{ github.event.inputs.repo_branch }} kernel
 
     - name: Migrate kernel source to GKI
       working-directory: $GITHUB_WORKSPACE/workdir/kernel
