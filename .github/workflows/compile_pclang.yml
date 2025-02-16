@@ -30,32 +30,37 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-    - name: Checkout
+    - name: Checkout Repository
       uses: actions/checkout@v3
 
-    - name: Create workdir
-      run: mkdir -p $GITHUB_WORKSPACE/workdir
+    - name: Create Work Directory
+      run: mkdir -p "$GITHUB_WORKSPACE/workdir"
 
-    - name: Clone kernel source
-      working-directory: $GITHUB_WORKSPACE/workdir
-      run: |
-        git clone ${{ github.event.inputs.repo }} -b ${{ github.event.inputs.repo_branch }} kernel
+    - name: Verify Work Directory
+      run: ls -la "$GITHUB_WORKSPACE"
 
-    - name: Migrate kernel source to GKI
-      working-directory: $GITHUB_WORKSPACE/workdir/kernel
+    - name: Clone Kernel Source
+      working-directory: "$GITHUB_WORKSPACE/workdir"
       run: |
-        # Apply GKI patches from Google sources
-        git am <(curl -sL https://android.googlesource.com/kernel/common/+refs/heads/android-14/patches/*.patch)
-        # Update kernel config
+        echo "Current Working Directory: $(pwd)"
+        git clone --depth=1 "${{ github.event.inputs.repo }}" -b "${{ github.event.inputs.repo_branch }}" kernel
+
+    - name: Apply GKI Patches
+      working-directory: "$GITHUB_WORKSPACE/workdir/kernel"
+      run: |
+        curl -sL https://android.googlesource.com/kernel/common/+refs/heads/android-14/patches/*.patch | git am
+
+    - name: Update Kernel Config
+      working-directory: "$GITHUB_WORKSPACE/workdir/kernel"
+      run: |
         cp arch/arm64/configs/${{ env.XZ3_DEFCONFIG }} .config
-        # Update kernel source
-        git add .
-        git commit -m "Migrated kernel source to GKI"
+        git add .config
+        git commit -m "Updated kernel config for GKI"
 
-    - name: Create new branch for GKI kernel source
-      working-directory: $GITHUB_WORKSPACE/workdir/kernel
-      run: git checkout -b ${{ github.event.inputs.gki_branch }}
+    - name: Create New Branch for GKI Kernel
+      working-directory: "$GITHUB_WORKSPACE/workdir/kernel"
+      run: git checkout -b "${{ github.event.inputs.gki_branch }}"
 
-    - name: Push changes to new branch
-      working-directory: $GITHUB_WORKSPACE/workdir/kernel
-      run: git push origin ${{ github.event.inputs.gki_branch }}
+    - name: Push Changes to New Branch
+      working-directory: "$GITHUB_WORKSPACE/workdir/kernel"
+      run: git push origin "${{ github.event.inputs.gki_branch }}"
