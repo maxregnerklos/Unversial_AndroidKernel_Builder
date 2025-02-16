@@ -24,6 +24,7 @@ env:
   SUBARCH: arm64
   XZ3_DEVICE: akatsuki
   XZ3_DEFCONFIG: tama_akatsuki_defconfig
+  WORKDIR: "/home/runner/work/Unversial_AndroidKernel_Builder/Unversial_AndroidKernel_Builder/workdir"
 
 jobs:
   build:
@@ -34,33 +35,33 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Create Work Directory
-      run: mkdir -p "$GITHUB_WORKSPACE/workdir"
+      run: mkdir -p "$WORKDIR"
 
     - name: Verify Work Directory
-      run: ls -la "$GITHUB_WORKSPACE"
+      run: ls -la "$WORKDIR"
 
     - name: Clone Kernel Source
-      working-directory: "$GITHUB_WORKSPACE/workdir"
+      working-directory: "$WORKDIR"
       run: |
         echo "Current Working Directory: $(pwd)"
         git clone --depth=1 "${{ github.event.inputs.repo }}" -b "${{ github.event.inputs.repo_branch }}" kernel
 
     - name: Apply GKI Patches
-      working-directory: "$GITHUB_WORKSPACE/workdir/kernel"
+      working-directory: "$WORKDIR/kernel"
       run: |
         curl -sL https://android.googlesource.com/kernel/common/+refs/heads/android-14/patches/*.patch | git am
 
     - name: Update Kernel Config
-      working-directory: "$GITHUB_WORKSPACE/workdir/kernel"
+      working-directory: "$WORKDIR/kernel"
       run: |
         cp arch/arm64/configs/${{ env.XZ3_DEFCONFIG }} .config
         git add .config
         git commit -m "Updated kernel config for GKI"
 
     - name: Create New Branch for GKI Kernel
-      working-directory: "$GITHUB_WORKSPACE/workdir/kernel"
+      working-directory: "$WORKDIR/kernel"
       run: git checkout -b "${{ github.event.inputs.gki_branch }}"
 
     - name: Push Changes to New Branch
-      working-directory: "$GITHUB_WORKSPACE/workdir/kernel"
+      working-directory: "$WORKDIR/kernel"
       run: git push origin "${{ github.event.inputs.gki_branch }}"
