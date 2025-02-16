@@ -1,4 +1,4 @@
-name: Build GKI (Proton-Clang) with Xperia XZ3 Enhancements
+name: Migrate Kernel Source to GKI
 
 on:
   repository_dispatch:
@@ -13,33 +13,15 @@ on:
       device:
         description: 'Device code (e.g., Xperia XZ3: akatsuki)'
         required: true
-      ssh:
-        description: 'SSH connection to Actions'
-        required: false
-      kernelsu:
-        description: 'Compile KernelSU'
-        required: false
-      ccache:
-        description: 'Use CCache'
-        required: true
-      xz3_enhancements:
-        description: 'Apply Xperia XZ3 Enhancements'
-        required: false
-      gki:
-        description: 'Build GKI'
+      gki_branch:
+        description: 'New branch for GKI kernel source'
         required: true
 
 env:
-  UPLOAD_BIN_DIR: true
-  UPLOAD_RELEASE: true
   REPO_BRANCH: android-14
-  COMPER_URL: https://github.com/kdrag0n/proton-clang.git
-  ANYKERNEL_URL: https://github.com/osm0sis/AnyKernel3.git
   TZ: Asia/Shanghai
   ARCH: arm64
   SUBARCH: arm64
-  CCACHE_DIR: ~/.ccache
-  BUILDER: /workdir/toolchain/bin/
   XZ3_DEVICE: akatsuki
   XZ3_DEFCONFIG: tama_akatsuki_defconfig
 
@@ -51,85 +33,28 @@ jobs:
     - name: Checkout
       uses: actions/checkout@main
 
-    - name: Initialization environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: |
-        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
-        sudo -E apt-get -qq update
-        sudo -E apt-get install -y bc bison build-essential binutils-dev ca-certificates ccache cmake curl flex file g++-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libwxgtk3.0-gtk3-dev libc6-i386 libxml2 libxml2-utils lld lzop ninja-build pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev unzip openjdk-8-jdk language-pack-zh-hans texinfo python python3.7 vim u-boot-tools xz-utils zlib1g-dev
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo timedatectl set-timezone "$TZ"
-        sudo mkdir -p /workdir
-        sudo chown $USER:$GROUPS /workdir
-
     - name: Clone kernel source
       working-directory: /workdir
       run: |
         git clone --depth=1 ${{ github.event.inputs.repo }} -b ${{ github.event.inputs.repo_branch }} kernel
 
-    - name: Clone compiler
-      working-directory: /workdir
-      run: |
-        git clone --depth=1 $COMPER_URL toolchain
-
     - name: Migrate kernel source to GKI
       working-directory: /workdir/kernel
       run: |
+        # Apply GKI patches from Google sources
+        git am https://android.googlesource.com/kernel/common/+refs/heads/android-14/patches/*.patch
         # Update kernel config
-        make O=out $XZ3_DEFCONFIG
+        cp arch/arm64/configs/tama_akatsuki_defconfig .config
         # Update kernel source
-        make O=out prepare
+        git add .
+        git commit -m "Migrated kernel source to GKI"
 
-    - name: Build GKI
+    - name: Create new branch for GKI kernel source
       working-directory: /workdir/kernel
       run: |
-        make O=out GKI
+        git checkout -b ${{ github.event.inputs.gki_branch }}
 
-    - name: Pack kernel
-      working-directory: /workdir
+    - name: Push changes to new branch
+      working-directory: /workdir/kernel
       run: |
-        mkdir /workdir/release_up
-        ln -sf /workdir/release_up $GITHUB_WORKSPACE/release_up
-        cp /workdir/kernel/out/arch/arm64/boot/Image.gz-dtb ./anykernel/Image-dtb
-        tar -zcvf /workdir/release_up/GKI_${DEVICE}_Fullpack.tar.gz /workdir/kernel/out/arch/arm64/boot/*
-        zip -q -r /workdir/release_up/GKI_Loader_${DEVICE}_Anykernel.zip /workdir/anykernel/*
-
-    - name: Upload kernel directory
-      uses: actions/upload-artifact@main
-      with:
-        working-directory: /workdir/kernel
-        name: GKI_${DEVICE}_Fullpack
-        path: /workdir/kernel/out/arch/arm64/boot/
-
-    - name: Upload kernel patcher
-      uses: actions/upload-artifact@main
-      with:
-        working-directory: /workdir
-        name: GKI_Loader_${DEVICE}_Anykernel
-        path: /workdir/anykernel/
-
-    - name: Generate release tag
-      id: tag
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      run: |
-        echo "::set-output name=release_tag::$("GKI-"+date +"%Y.%m.%d-%H%M")"
-        touch release.txt
-        echo "::set-output name=status::success"
-
-    - name: Upload kernel to release
-      uses: softprops/action-gh-release@v1
-      if: steps.tag.outputs.status == 'success' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: release.txt
-        files: /workdir/release_up/*
-
-    - name: Delete workflow runs
-      uses: GitRML/delete-workflow-runs@main
-      with:
-        retain_days: 1
-        keep_minimum_runs: 3
+        git push origin ${{ github.event.inputs.gki_branch }}
