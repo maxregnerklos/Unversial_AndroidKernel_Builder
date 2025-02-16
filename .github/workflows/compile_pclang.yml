@@ -1,13 +1,4 @@
-#
-# Copyright (c) 2022-2023 SkyFaklist
-#
-# This is free software, licensed under the GPL License.
-# See /LICENSE for more information.
-#
-# Description: Build UA Kernel using GitHub Actions
-#
-
-name: Build UA Kernel (Proton-Clang)
+name: Build GKI (Proton-Clang) with Xperia XZ3 Enhancements
 
 on:
   repository_dispatch:
@@ -17,20 +8,19 @@ on:
         description: 'Kernel Repo URL'
         required: true
         default: ''
+        validate: ${{ startsWith( inputs.repo, 'https://github.com/' ) }}
       repo_branch:
         description: 'Branch of Kernel repo'
         required: true
         default: 'master'
+        validate: ${{ matches( inputs.repo_branch, '^[a-zA-Z0-9_-]+$' ) }}
       device:
-        description: 'Device code of Kernel'
+        description: 'Device code (e.g., Xperia XZ3: akatsuki)'
         required: true
         default: ''
+        validate: ${{ matches( inputs.device, '^[a-zA-Z0-9_-]+$' ) }}
       ssh:
         description: 'SSH connection to Actions'
-        required: false
-        default: 'false'
-      custom:
-        description: 'Run custom script'
         required: false
         default: 'false'
       kernelsu:
@@ -41,19 +31,28 @@ on:
         description: 'Use CCache'
         required: true
         default: 'true'
+      xz3_enhancements:
+        description: 'Apply Xperia XZ3 Enhancements'
+        required: false
+        default: 'false'
+      gki:
+        description: 'Build GKI'
+        required: true
+        default: 'true'
 
 env:
   UPLOAD_BIN_DIR: true
   UPLOAD_RELEASE: true
   REPO_BRANCH: android-14
   COMPER_URL: https://github.com/kdrag0n/proton-clang.git
-  ANYKERNEL_URL: https://github.com/osm0sis/AnyKernel3.git 
+  ANYKERNEL_URL: https://github.com/osm0sis/AnyKernel3.git
   TZ: Asia/Shanghai
   ARCH: arm64
   SUBARCH: arm64
   CCACHE_DIR: ~/.ccache
   BUILDER: /workdir/toolchain/bin/
-  
+  XZ3_DEVICE: akatsuki
+  XZ3_DEFCONFIG: xperia-xz3_defconfig
 
 jobs:
   build:
@@ -69,7 +68,6 @@ jobs:
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        #sudo -E apt-get -qq install $(curl -fsSL git.io/depends-ubuntu-2004)
         sudo -E apt-get install -y bc bison build-essential binutils-dev ca-certificates ccache cmake curl flex file g++-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libwxgtk3.0-gtk3-dev libc6-i386 libxml2 libxml2-utils lld lzop ninja-build pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev unzip openjdk-8-jdk language-pack-zh-hans texinfo python python3.7 vim u-boot-tools xz-utils zlib1g-dev
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
@@ -81,84 +79,77 @@ jobs:
       working-directory: /workdir
       run: |
         df -hT $PWD
-        mkdir extra
-        mv $GITHUB_WORKSPACE/anykernel.sh extra/ && mv $GITHUB_WORKSPACE/compile.sh extra/ && mv $GITHUB_WORKSPACE/custom.sh extra/
-        git clone $ANYKERNEL_URL anykernel
-        rm -rf ./anykernel/.github && rm -rf ./anykernel/README.md && rm -rf ./anykernel/.git && rm -rf ./anykernel/anykernel.sh
         git clone --depth=1 ${{github.event.inputs.repo}} -b ${{github.event.inputs.repo_branch}} kernel
         git clone --depth=1 $COMPER_URL toolchain
-        cp ./extra/compile.sh ./kernel/
-        cp ./extra/anykernel.sh ./anykernel/
-        ln -sf /workdir/kernel $GITHUB_WORKSPACE/kernel
+        git clone --depth=1 $ANYKERNEL_URL anykernel
+
+    - name: Apply Xperia XZ3 Enhancements
+      if: github.event.inputs.xz3_enhancements == 'true'
+      working-directory: /workdir/kernel
+      run: |
+        git am /workdir/kernel/*.patch
 
     - name: Set CCache (${{github.event.inputs.ccache}})
       id: ccache
       working-directory: /workdir/kernel
-      if: (github.event.inputs.ccache == 'true' && github.event.inputs.ccache  != 'false') || contains(github.event.action, 'ccache')
+      if: ${{ github.event.inputs.ccache == 'true' }}
       run: |
         ccache -M 15G
-        
+
     - name: Patch KernelSU (${{github.event.inputs.kernelsu}})
       id: kernelsu
       working-directory: /workdir/kernel
-      if: (github.event.inputs.kernelsu == 'true' && github.event.inputs.kernelsu  != 'false') || contains(github.event.action, 'kernelsu')
+      if: ${{ github.event.inputs.kernelsu == 'true' }}
       run: |
-       curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-        
-    - name: Kernel Custom Script (${{github.event.inputs.custom}})
-      id: custom
-      working-directory: /workdir
-      if: (github.event.inputs.custom == 'true' && github.event.inputs.custom  != 'false') || contains(github.event.action, 'custom')
-      run: |
-       cp ./extra/custom.sh ./kernel/
-       chmod +x ./kernel/custom.sh
-       bash ./kernel/custom.sh
-        
+        curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+
     - name: SSH connection to Actions (${{github.event.inputs.ssh}})
       id: ssh
       uses: mxschmitt/action-tmate@v3
-      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
+      if: ${{ github.event.inputs.ssh == 'true' }}
 
     - name: Set Device
       working-directory: /workdir/kernel
       run: |
-         make O=out ${{github.event.inputs.device}}_defconfig
+        if [ "$DEVICE" == "$XZ3_DEVICE" ]; then
+          make O=out $XZ3_DEFCONFIG
+        else
+          make O=out $DEVICE_defconfig
+        fi
 
-    - name: Compile Source
+    - name: Compile GKI
       working-directory: /workdir/kernel
       run: |
-        chmod +x ./compile.sh
-        bash ./compile.sh
-        ls /workdir/kernel/out/arch/arm64/boot/
-    
+        make O=out GKI
+
     - name: Pack Kernel
       working-directory: /workdir
       run: |
         mkdir /workdir/release_up
         ln -sf /workdir/release_up $GITHUB_WORKSPACE/release_up
         cp /workdir/kernel/out/arch/arm64/boot/Image.gz-dtb ./anykernel/Image-dtb
-        tar -zcvf /workdir/release_up/UALoader_${{github.event.inputs.device}}_Fullpack.tar.gz /workdir/kernel/out/arch/arm64/boot/*
-        zip -q -r /workdir/release_up/UA_Loader_${{github.event.inputs.device}}_Anykernel.zip /workdir/anykernel/*
-        
+        tar -zcvf /workdir/release_up/GKI_${DEVICE}_Fullpack.tar.gz /workdir/kernel/out/arch/arm64/boot/*
+        zip -q -r /workdir/release_up/GKI_Loader_${DEVICE}_Anykernel.zip /workdir/anykernel/*
+
     - name: Upload Kernel directory
       uses: actions/upload-artifact@main
       with:
         working-directory: /workdir/kernel
-        name: UALoader_${{github.event.inputs.device}}_Fullpack
+        name: GKI_${DEVICE}_Fullpack
         path: /workdir/kernel/out/arch/arm64/boot/
-        
+
     - name: Upload Kernel Patcher
       uses: actions/upload-artifact@main
       with:
         working-directory: /workdir
-        name: UA_Loader_${{github.event.inputs.device}}_Anykernel
+        name: GKI_Loader_${DEVICE}_Anykernel
         path: /workdir/anykernel/
 
     - name: Generate release tag
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        echo "::set-output name=release_tag::$("UAB-"+date +"%Y.%m.%d-%H%M")"
+        echo "::set-output name=release_tag::$("GKI-"+date +"%Y.%m.%d-%H%M")"
         touch release.txt
         echo "::set-output name=status::success"
 
@@ -171,7 +162,7 @@ jobs:
         tag_name: ${{ steps.tag.outputs.release_tag }}
         body_path: release.txt
         files: /workdir/release_up/*
-       
+
     - name: Delete workflow runs
       uses: GitRML/delete-workflow-runs@main
       with:
