@@ -7,38 +7,27 @@ on:
       repo:
         description: 'Kernel Repo URL'
         required: true
-        default: ''
-        validate: ${{ startsWith( inputs.repo, 'https://github.com/' ) }}
       repo_branch:
         description: 'Branch of Kernel repo'
         required: true
-        default: 'master'
-        validate: ${{ matches( inputs.repo_branch, '^[a-zA-Z0-9_-]+$' ) }}
       device:
         description: 'Device code (e.g., Xperia XZ3: akatsuki)'
         required: true
-        default: ''
-        validate: ${{ matches( inputs.device, '^[a-zA-Z0-9_-]+$' ) }}
       ssh:
         description: 'SSH connection to Actions'
         required: false
-        default: 'false'
       kernelsu:
         description: 'Compile KernelSU'
         required: false
-        default: 'false'
       ccache:
         description: 'Use CCache'
         required: true
-        default: 'true'
       xz3_enhancements:
         description: 'Apply Xperia XZ3 Enhancements'
         required: false
-        default: 'false'
       gki:
         description: 'Build GKI'
         required: true
-        default: 'true'
 
 env:
   UPLOAD_BIN_DIR: true
@@ -52,7 +41,7 @@ env:
   CCACHE_DIR: ~/.ccache
   BUILDER: /workdir/toolchain/bin/
   XZ3_DEVICE: akatsuki
-  XZ3_DEFCONFIG: xperia-xz3_defconfig
+  XZ3_DEFCONFIG: tama_akatsuki_defconfig
 
 jobs:
   build:
@@ -75,54 +64,30 @@ jobs:
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
 
-    - name: Clone source code
+    - name: Clone kernel source
       working-directory: /workdir
       run: |
-        df -hT $PWD
-        git clone --depth=1 ${{github.event.inputs.repo}} -b ${{github.event.inputs.repo_branch}} kernel
+        git clone --depth=1 ${{ github.event.inputs.repo }} -b ${{ github.event.inputs.repo_branch }} kernel
+
+    - name: Clone compiler
+      working-directory: /workdir
+      run: |
         git clone --depth=1 $COMPER_URL toolchain
-        git clone --depth=1 $ANYKERNEL_URL anykernel
 
-    - name: Apply Xperia XZ3 Enhancements
-      if: github.event.inputs.xz3_enhancements == 'true'
+    - name: Migrate kernel source to GKI
       working-directory: /workdir/kernel
       run: |
-        git am /workdir/kernel/*.patch
+        # Update kernel config
+        make O=out $XZ3_DEFCONFIG
+        # Update kernel source
+        make O=out prepare
 
-    - name: Set CCache (${{github.event.inputs.ccache}})
-      id: ccache
-      working-directory: /workdir/kernel
-      if: ${{ github.event.inputs.ccache == 'true' }}
-      run: |
-        ccache -M 15G
-
-    - name: Patch KernelSU (${{github.event.inputs.kernelsu}})
-      id: kernelsu
-      working-directory: /workdir/kernel
-      if: ${{ github.event.inputs.kernelsu == 'true' }}
-      run: |
-        curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-
-    - name: SSH connection to Actions (${{github.event.inputs.ssh}})
-      id: ssh
-      uses: mxschmitt/action-tmate@v3
-      if: ${{ github.event.inputs.ssh == 'true' }}
-
-    - name: Set Device
-      working-directory: /workdir/kernel
-      run: |
-        if [ "$DEVICE" == "$XZ3_DEVICE" ]; then
-          make O=out $XZ3_DEFCONFIG
-        else
-          make O=out $DEVICE_defconfig
-        fi
-
-    - name: Compile GKI
+    - name: Build GKI
       working-directory: /workdir/kernel
       run: |
         make O=out GKI
 
-    - name: Pack Kernel
+    - name: Pack kernel
       working-directory: /workdir
       run: |
         mkdir /workdir/release_up
@@ -131,14 +96,14 @@ jobs:
         tar -zcvf /workdir/release_up/GKI_${DEVICE}_Fullpack.tar.gz /workdir/kernel/out/arch/arm64/boot/*
         zip -q -r /workdir/release_up/GKI_Loader_${DEVICE}_Anykernel.zip /workdir/anykernel/*
 
-    - name: Upload Kernel directory
+    - name: Upload kernel directory
       uses: actions/upload-artifact@main
       with:
         working-directory: /workdir/kernel
         name: GKI_${DEVICE}_Fullpack
         path: /workdir/kernel/out/arch/arm64/boot/
 
-    - name: Upload Kernel Patcher
+    - name: Upload kernel patcher
       uses: actions/upload-artifact@main
       with:
         working-directory: /workdir
@@ -153,7 +118,7 @@ jobs:
         touch release.txt
         echo "::set-output name=status::success"
 
-    - name: Upload Kernel to release
+    - name: Upload kernel to release
       uses: softprops/action-gh-release@v1
       if: steps.tag.outputs.status == 'success' && !cancelled()
       env:
