@@ -31,34 +31,31 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@main
+      uses: actions/checkout@v3
 
     - name: Create workdir
-      run: |
-        mkdir -p /workdir
+      run: mkdir -p $GITHUB_WORKSPACE/workdir
 
     - name: Clone kernel source
-      working-directory: /workdir
+      working-directory: $GITHUB_WORKSPACE/workdir
       run: |
         git clone --depth=1 ${{ github.event.inputs.repo }} -b ${{ github.event.inputs.repo_branch }} kernel
 
     - name: Migrate kernel source to GKI
-      working-directory: /workdir/kernel
+      working-directory: $GITHUB_WORKSPACE/workdir/kernel
       run: |
         # Apply GKI patches from Google sources
-        git am https://android.googlesource.com/kernel/common/+refs/heads/android-14/patches/*.patch
+        git am <(curl -sL https://android.googlesource.com/kernel/common/+refs/heads/android-14/patches/*.patch)
         # Update kernel config
-        cp arch/arm64/configs/tama_akatsuki_defconfig .config
+        cp arch/arm64/configs/${{ env.XZ3_DEFCONFIG }} .config
         # Update kernel source
         git add .
         git commit -m "Migrated kernel source to GKI"
 
     - name: Create new branch for GKI kernel source
-      working-directory: /workdir/kernel
-      run: |
-        git checkout -b ${{ github.event.inputs.gki_branch }}
+      working-directory: $GITHUB_WORKSPACE/workdir/kernel
+      run: git checkout -b ${{ github.event.inputs.gki_branch }}
 
     - name: Push changes to new branch
-      working-directory: /workdir/kernel
-      run: |
-        git push origin ${{ github.event.inputs.gki_branch }}
+      working-directory: $GITHUB_WORKSPACE/workdir/kernel
+      run: git push origin ${{ github.event.inputs.gki_branch }}
