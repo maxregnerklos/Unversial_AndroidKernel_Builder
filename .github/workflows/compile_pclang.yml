@@ -33,6 +33,10 @@ jobs:
     - name: Checkout
       uses: actions/checkout@main
 
+    - name: Create workdir
+      run: |
+        mkdir -p /workdir
+
     - name: Clone kernel source
       working-directory: /workdir
       run: |
